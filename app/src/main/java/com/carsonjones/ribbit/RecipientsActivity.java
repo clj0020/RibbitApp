@@ -1,0 +1,120 @@
+package com.carsonjones.ribbit;
+
+import android.app.AlertDialog;
+import android.content.Context;
+import android.graphics.drawable.Drawable;
+import android.support.annotation.Nullable;
+import android.support.v4.app.FragmentManager;
+import android.support.v4.app.NavUtils;
+import android.support.v7.app.ActionBar;
+import android.support.v7.app.ActionBarActivity;
+import android.os.Bundle;
+import android.view.Menu;
+import android.view.MenuItem;
+import android.view.View;
+import android.widget.SpinnerAdapter;
+import android.widget.Toast;
+
+import com.parse.ParseException;
+import com.parse.ParseInstallation;
+import com.parse.ParseObject;
+import com.parse.ParseQuery;
+import com.parse.SaveCallback;
+import com.carsonjones.ribbit.ParseConstants;
+import com.carsonjones.ribbit.RecipientsFragment;
+import com.carsonjones.ribbit.R;
+
+
+public class RecipientsActivity extends ActionBarActivity {
+
+
+    public static Context mContext;
+    public static MenuItem mSendMenuItem;
+    protected RecipientsFragment list;
+
+    @Override
+    protected void onCreate(Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.activity_recipients);
+        mContext = this;
+        list = new RecipientsFragment();
+
+    }
+
+    @Override
+    protected void onResume() {
+        super.onResume();
+
+        FragmentManager fm = getSupportFragmentManager();
+        fm.beginTransaction().add(android.R.id.content, list).commit();
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        // Inflate the menu; this adds items to the action bar if it is present.
+        getMenuInflater().inflate(R.menu.menu_recipients, menu);
+        mSendMenuItem = menu.getItem(0);
+
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        // Handle action bar item clicks here. The action bar will
+        // automatically handle clicks on the Home/Up button, so long
+        // as you specify a parent activity in AndroidManifest.xml.
+
+
+        //noinspection SimplifiableIfStatement
+        switch (item.getItemId()) {
+            case android.R.id.home:
+                NavUtils.navigateUpFromSameTask(this);
+                break;
+            case R.id.action_send:
+                // send to recipients checked
+                ParseObject message = list.createMessage();
+                if(message == null) {
+                    AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                    builder.setTitle("Oops")
+                            .setMessage(R.string.error_title)
+                            .setPositiveButton(android.R.string.ok, null);
+                    AlertDialog dialog = builder.create();
+                    dialog.show();
+                } else {
+                    send(message);
+                    finish();
+                }
+
+                break;
+
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
+    protected void send(ParseObject message) {
+
+        message.saveInBackground(new SaveCallback() {
+            @Override
+            public void done(ParseException e) {
+                if (e == null) {
+                    Toast.makeText(RecipientsActivity.this,
+                            "Send successful!", Toast.LENGTH_LONG).show();
+                    sendPushNotifications();
+                } else {
+                    AlertDialog.Builder builder = new AlertDialog.Builder(RecipientsActivity.this);
+                    builder.setTitle("Oops")
+                            .setMessage(R.string.error_title)
+                            .setPositiveButton(android.R.string.ok, null);
+                    AlertDialog dialog = builder.create();
+                    dialog.show();
+                }
+            }
+        });
+    }
+
+    protected void sendPushNotifications() {
+        ParseQuery<ParseInstallation> query = ParseInstallation.getQuery();
+        query.whereContainedIn(ParseConstants.KEY_USER_ID, list.getRecipientIds());
+    }
+}
